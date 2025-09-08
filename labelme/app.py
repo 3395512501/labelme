@@ -2080,17 +2080,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setDirty()
 
     def deleteSelectedShape(self):
+        # 定义两个变量分别表示确认和取消按钮
         yes, no = QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No
+
+        # 构造提示消息，使用format方法插入选中图形的数量
+        # self.tr()用于国际化支持，使消息可以被翻译为不同语言
         msg = self.tr(
             "You are about to permanently delete {} polygons, proceed anyway?"
         ).format(len(self.canvas.selectedShapes))
+
+        # 显示警告对话框，询问用户是否确认删除
+        # 对话框标题为"Attention"，消息为上面构建的msg
+        # 按钮组合为yes和no，默认焦点在yes按钮上
         if yes == QtWidgets.QMessageBox.warning(
             self, self.tr("Attention"), msg, yes | no, yes
         ):
+            # 如果用户确认删除，调用canvas的deleteSelected()方法删除选中图形
+            # 并调用remLabels()方法更新标签
             self.remLabels(self.canvas.deleteSelected())
+
+            # 标记当前项目为已修改（脏状态）
             self.setDirty()
+
+            # 检查是否还存在图形
             if self.noShapes():
-                for action in self.actions.onShapesPresent:
+                # 新增：如果没有图形了，则取消labelList勾选
+                self.fileListWidget.currentItem().setCheckState(Qt.Unchecked)
+
+                # 如果没有图形了，禁用所有与图形相关的操作
+                for action in self.actions.onShapesPresent:  # type: ignore[attr-defined]
                     action.setEnabled(False)
 
     def copyShape(self):
