@@ -1548,10 +1548,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scrollBars[orientation].setValue(int(value))
         self.scroll_values[orientation][self.filename] = value
 
-    def setZoom(self, value):
-        self.actions.fitWidth.setChecked(False)
-        self.actions.fitWindow.setChecked(False)
-        self.zoomMode = self.MANUAL_ZOOM
+    def setZoom(self, value, force_manual=False):
+        if force_manual:
+            # 仅当手动操作缩放控件时，才取消 Fit Window 模式
+            self.actions.fitWidth.setChecked(False)
+            self.actions.fitWindow.setChecked(False)
+            self.zoomMode = self.MANUAL_ZOOM
         self.zoomWidget.setValue(value)
         self.zoom_values[self.filename] = (self.zoomMode, value)
 
@@ -1715,9 +1717,14 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.setClean()
         self.canvas.setEnabled(True)
-        # set zoom values
+        # set zoom values (新增 Fit Window 状态检查)
         is_initial_load = not self.zoom_values
-        if self.filename in self.zoom_values:
+        # 优先检查当前是否开启 Fit Window，若开启则强制使用该模式
+        if self.actions.fitWindow.isChecked():
+            self.zoomMode = self.FIT_WINDOW
+            self.adjustScale(initial=True)  # 适配新图片到窗口
+        elif self.filename in self.zoom_values:
+            # 未开启 Fit Window 时，恢复之前存储的缩放状态
             self.zoomMode = self.zoom_values[self.filename][0]
             self.setZoom(self.zoom_values[self.filename][1])
         elif is_initial_load or not self._config["keep_prev_scale"]:
