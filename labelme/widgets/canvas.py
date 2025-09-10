@@ -49,6 +49,8 @@ class Canvas(QtWidgets.QWidget):
 
     def __init__(self, *args, **kwargs):
         self.epsilon = kwargs.pop("epsilon", 10.0)
+        # 平滑渲染控制变量
+        self._smooth_render = kwargs.pop("_smooth_render", False)
         self.double_click = kwargs.pop("double_click", "close")
         if self.double_click not in [None, "close"]:
             raise ValueError(
@@ -653,6 +655,11 @@ class Canvas(QtWidgets.QWidget):
         self.storeShapes()
         self.update()
 
+    def set_smooth_render(self, enabled: bool):
+        if self._smooth_render != enabled:
+            self._smooth_render = enabled
+            self.update()  # 触发 paintEvent 重绘界面
+
     def paintEvent(self, event: QtGui.QPaintEvent) -> None:
         if not self.pixmap:
             return super().paintEvent(event)
@@ -661,7 +668,8 @@ class Canvas(QtWidgets.QWidget):
         p.begin(self)
         p.setRenderHint(QtGui.QPainter.Antialiasing)
         p.setRenderHint(QtGui.QPainter.HighQualityAntialiasing)
-        p.setRenderHint(QtGui.QPainter.SmoothPixmapTransform)
+        # 是否开启平滑渲染
+        p.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, self._smooth_render)
 
         p.scale(self.scale, self.scale)
         p.translate(self.offsetToCenter())

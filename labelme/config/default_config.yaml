@@ -1,5 +1,6 @@
 auto_save: false
 display_label_popup: true
+smooth_render: false
 store_data: true
 keep_prev: false
 keep_prev_scale: false

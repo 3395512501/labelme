@@ -21,7 +21,7 @@ from labelme._automation import bbox_from_text
 from labelme._label_file import LabelFile
 from labelme._label_file import LabelFileError
 from labelme._label_file import ShapeDict
-from labelme.config import get_config
+from labelme.config import get_config, save_config
 from labelme.shape import Shape
 from labelme.widgets import AiPromptWidget
 from labelme.widgets import BrightnessContrastDialog
@@ -167,6 +167,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.canvas = Canvas(
             epsilon=self._config["epsilon"],
+            _smooth_render=self._config["smooth_render"],
             double_click=self._config["canvas"]["double_click"],
             num_backups=self._config["canvas"]["num_backups"],
             crosshair=self._config["canvas"]["crosshair"],
@@ -299,6 +300,14 @@ class MainWindow(QtWidgets.QMainWindow):
             tip=self.tr("Save image data in label file"),
             checkable=True,
             checked=self._config["store_data"],
+        )
+
+        smoothRender = action(
+            text=self.tr("图像平滑处理"),
+            slot=self.smooth_render,
+            checkable=True,
+            icon="eye",
+            checked=self._config["smooth_render"],
         )
 
         close = action(
@@ -610,6 +619,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.actions = types.SimpleNamespace(
             saveAuto=saveAuto,
             saveWithImageData=saveWithImageData,
+            # 新增：平滑渲染
+            smoothRender=smoothRender,
             changeOutputDir=changeOutputDir,
             save=save,
             saveAs=saveAs,
@@ -742,6 +753,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 hideAll,
                 showAll,
                 toggleAll,
+                # 平滑渲染
+                smoothRender,
                 None,
                 zoomIn,
                 zoomOut,
@@ -1787,6 +1800,19 @@ class MainWindow(QtWidgets.QMainWindow):
     def enableSaveImageWithData(self, enabled):
         self._config["store_data"] = enabled
         self.actions.saveWithImageData.setChecked(enabled)
+        # 将设置保存到配置文件中
+        save_config(self._config)
+
+    def smooth_render(self, enabled):
+        # 更新配置
+        self._config["smooth_render"] = enabled
+        self.actions.smoothRender.setChecked(enabled)
+
+        # 通知 Canvas 切换平滑渲染状态
+        self.canvas.set_smooth_render(enabled)
+
+        # 配置持久化
+        save_config(self._config)
 
     def closeEvent(self, event):
         if not self.mayContinue():
