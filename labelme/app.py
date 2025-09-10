@@ -1255,6 +1255,7 @@ class MainWindow(QtWidgets.QMainWindow):
             load=False,
         )
 
+    # 加载显示图片
     def fileSelectionChanged(self):
         items = self.fileListWidget.selectedItems()
         if not items:
@@ -1264,7 +1265,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.mayContinue():
             return
 
-        currIndex = self.imageList.index(str(item.text()))
+        # 修改从QtCore.Qt.UserRole+1中获取图片路径显示
+        role_filename = item.data(QtCore.Qt.UserRole + 1)
+        currIndex = self.imageList.index(role_filename)
         if currIndex < len(self.imageList):
             filename = self.imageList[currIndex]
             if filename:
@@ -2148,7 +2151,9 @@ class MainWindow(QtWidgets.QMainWindow):
         lst = []
         for i in range(self.fileListWidget.count()):
             item = self.fileListWidget.item(i)
-            lst.append(item.text())  # type: ignore[union-attr]
+            # 修改：从UserRole+1中读取原文件路径
+            role_filename = item.data(QtCore.Qt.UserRole + 1)
+            lst.append(role_filename)  # type: ignore[union-attr]
         return lst
 
     def importDroppedImageFiles(self, imageFiles):
@@ -2196,12 +2201,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 filenames = [f for f in filenames if re.search(pattern, f)]
             except re.error:
                 pass
-        for filename in filenames:
+        # 使用enumerate获取序号
+        for index, filename in enumerate(filenames, start=1):
             label_file = f"{osp.splitext(filename)[0]}.json"
             if self.output_dir:
                 label_file_without_path = osp.basename(label_file)
                 label_file = osp.join(self.output_dir, label_file_without_path)
-            item = QtWidgets.QListWidgetItem(filename)
+
+            # 创建带有序号的显示文本，实际存储放到role_filename内
+            show_filename = f"{index}-{filename}"
+            item = QtWidgets.QListWidgetItem(show_filename)
+            item.setData(QtCore.Qt.UserRole + 1, filename)
+
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(label_file):
                 item.setCheckState(Qt.Checked)
