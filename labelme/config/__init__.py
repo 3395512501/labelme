@@ -12,7 +12,7 @@ def update_dict(target_dict, new_dict, validate_item=None):
         if validate_item:
             validate_item(key, value)
         if key not in target_dict:
-            logger.warning(f"Skipping unexpected key in config: {key}")
+            logger.warning("Skipping unexpected key in config: {}".format(key))
             continue
         if isinstance(target_dict[key], dict) and isinstance(value, dict):
             update_dict(target_dict[key], value, validate_item=validate_item)
@@ -20,7 +20,33 @@ def update_dict(target_dict, new_dict, validate_item=None):
             target_dict[key] = value
 
 
-# -----------------------------------------------------------------------------
+# 新增：获取配置文件路径（与加载逻辑保持一致）
+def get_config_path():
+    return osp.join(osp.expanduser("~"), ".labelmerc")
+
+
+# 新增：保存配置到文件
+def save_config(config):
+    """保存配置到 ~/.labelmerc 文件"""
+    config_path = get_config_path()
+    try:
+        # 先验证配置合法性
+        for key, value in config.items():
+            validate_config_item(key, value)
+
+        # 写入配置文件，保持与加载逻辑一致的YAML格式
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(
+                config,
+                f,
+                allow_unicode=True,  # 支持中文
+                sort_keys=False  # 保持键的顺序
+            )
+        logger.info("Config saved to: {}".format(config_path))
+        return True
+    except Exception as e:
+        logger.error("Failed to save config: {}".format(e))
+        return False
 
 
 def get_default_config():
@@ -29,23 +55,29 @@ def get_default_config():
         config = yaml.safe_load(f)
 
     # save default config to ~/.labelmerc
-    user_config_file = osp.join(osp.expanduser("~"), ".labelmerc")
+    user_config_file = get_config_path()  # 使用统一的路径函数
     if not osp.exists(user_config_file):
         try:
             shutil.copy(config_file, user_config_file)
         except Exception:
-            logger.warning(f"Failed to save config: {user_config_file}")
+            logger.warning("Failed to save config: {}".format(user_config_file))
 
     return config
 
 
 def validate_config_item(key, value):
     if key == "validate_label" and value not in [None, "exact"]:
-        raise ValueError(f"Unexpected value for config key 'validate_label': {value}")
+        raise ValueError(
+            "Unexpected value for config key 'validate_label': {}".format(value)
+        )
     if key == "shape_color" and value not in [None, "auto", "manual"]:
-        raise ValueError(f"Unexpected value for config key 'shape_color': {value}")
+        raise ValueError(
+            "Unexpected value for config key 'shape_color': {}".format(value)
+        )
     if key == "labels" and value is not None and len(value) != len(set(value)):
-        raise ValueError(f"Duplicates are detected for config key 'labels': {value}")
+        raise ValueError(
+            "Duplicates are detected for config key 'labels': {}".format(value)
+        )
 
 
 def get_config(config_file_or_yaml=None, config_from_args=None):
@@ -57,7 +89,7 @@ def get_config(config_file_or_yaml=None, config_from_args=None):
         config_from_yaml = yaml.safe_load(config_file_or_yaml)
         if not isinstance(config_from_yaml, dict):
             with open(config_from_yaml) as f:
-                logger.info(f"Loading config file from: {config_from_yaml}")
+                logger.info("Loading config file from: {}".format(config_from_yaml))
                 config_from_yaml = yaml.safe_load(f)
         update_dict(config, config_from_yaml, validate_item=validate_config_item)
 
