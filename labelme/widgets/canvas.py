@@ -86,6 +86,10 @@ class Canvas(QtWidgets.QWidget):
         self.line = Shape()
         self.prevPoint = QtCore.QPointF()
         self.prevMovePoint = QtCore.QPointF()
+
+        # 获得鼠标拖动时按下位置
+        self.prevDragPoint = QtCore.QPointF()
+
         self.offsets = QtCore.QPointF(), QtCore.QPointF()
         self.scale = 1.0
         self.pixmap = QtGui.QPixmap()
@@ -320,58 +324,90 @@ class Canvas(QtWidgets.QWidget):
         # - Highlight vertex
         # Update shape/vertex fill and tooltip value accordingly.
         self.setToolTip(self.tr("Image"))
-        for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
-            # Look for a nearby vertex to highlight. If that fails,
-            # check if we happen to be inside a shape.
+        # 收集所有可见图形中符合条件的顶点、边和图形
+        candidates = []  # 存储 (距离, 类型, 图形, 索引)，类型: 'vertex'/'edge'/'shape'
+
+        for shape in self.shapes:
+            if not self.isVisible(shape):
+                continue
+
+            pos = self.transformPos(ev.localPos())
+            # 1. 检测顶点
             index = shape.nearestVertex(pos, self.epsilon)
-            index_edge = shape.nearestEdge(pos, self.epsilon)
             if index is not None:
+                # 计算顶点到鼠标的实际距离（用于排序）
+                vertex_pos = shape.points[index]
+                distance = labelme.utils.distance(pos - vertex_pos)
+                candidates.append((distance, 'vertex', shape, index))
+
+            # 2. 检测边（仅当没有更近的顶点时才考虑）
+            if not any(c[1] == 'vertex' and c[0] < self.epsilon for c in candidates):
+                index_edge = shape.nearestEdge(pos, self.epsilon)
+                if index_edge is not None and shape.canAddPoint():
+                    edge_mid = shape.edgeMidpoint(index_edge)  # 假设存在获取边中点的方法
+                    distance = labelme.utils.distance(pos - edge_mid)
+                    candidates.append((distance, 'edge', shape, index_edge))
+
+            # 3. 检测图形内部（仅当没有更近的顶点和边时才考虑）
+            if (not any(c[1] == 'vertex' and c[0] < self.epsilon for c in candidates) and
+                    not any(c[1] == 'edge' and c[0] < self.epsilon for c in candidates) and
+                    shape.containsPoint(pos)):
+                # 图形内部距离用鼠标到图形中心的距离表示
+                center = shape.boundingRect().center()
+                distance = labelme.utils.distance(pos - center)
+                candidates.append((distance, 'shape', shape, None))
+
+        # 从候选中选择距离最近的交互元素
+        if candidates:
+            # 按距离排序，距离最小的优先
+            candidates.sort(key=lambda x: x[0])
+            min_distance, type_, shape, index = candidates[0]
+
+            # 处理顶点
+            if type_ == 'vertex':
                 if self.selectedVertex():
-                    self.hShape.highlightClear()  # type: ignore[union-attr]
+                    self.hShape.highlightClear()
                 self.prevhVertex = self.hVertex = index
                 self.prevhShape = self.hShape = shape
                 self.prevhEdge = self.hEdge
                 self.hEdge = None
                 shape.highlightVertex(index, shape.MOVE_VERTEX)
                 self.overrideCursor(CURSOR_POINT)
-                self.setToolTip(
-                    self.tr(
-                        "Click & Drag to move point\n"
-                        "ALT + SHIFT + Click to delete point"
-                    )
-                )
+                self.setToolTip(self.tr("Click & Drag to move point\nALT + SHIFT + Click to delete point"))
                 self.setStatusTip(self.toolTip())
                 self.update()
-                break
-            elif index_edge is not None and shape.canAddPoint():
+
+            # 处理边
+            elif type_ == 'edge':
                 if self.selectedVertex():
-                    self.hShape.highlightClear()  # type: ignore[union-attr]
+                    self.hShape.highlightClear()
                 self.prevhVertex = self.hVertex
                 self.hVertex = None
                 self.prevhShape = self.hShape = shape
-                self.prevhEdge = self.hEdge = index_edge
+                self.prevhEdge = self.hEdge = index
                 self.overrideCursor(CURSOR_POINT)
                 self.setToolTip(self.tr("ALT + Click to create point"))
                 self.setStatusTip(self.toolTip())
                 self.update()
-                break
-            elif shape.containsPoint(pos):
+
+            # 处理图形
+            elif type_ == 'shape':
                 if self.selectedVertex():
-                    self.hShape.highlightClear()  # type: ignore[union-attr]
+                    self.hShape.highlightClear()
                 self.prevhVertex = self.hVertex
                 self.hVertex = None
                 self.prevhShape = self.hShape = shape
                 self.prevhEdge = self.hEdge
                 self.hEdge = None
-                self.setToolTip(
-                    self.tr("Click & drag to move shape '%s'") % shape.label
-                )
+                self.setToolTip(self.tr("Click & drag to move shape '%s'") % shape.label)
                 self.setStatusTip(self.toolTip())
                 self.overrideCursor(CURSOR_GRAB)
                 self.update()
-                break
-        else:  # Nothing found, clear highlights, reset state.
+
+        else:
+            # 没有找到任何交互元素
             self.unHighlight()
+
         self.vertexSelected.emit(self.hVertex is not None)
 
     def addPointToEdge(self):
@@ -404,6 +440,7 @@ class Canvas(QtWidgets.QWidget):
         is_shift_pressed = ev.modifiers() & QtCore.Qt.ShiftModifier
 
         if ev.button() == QtCore.Qt.LeftButton:
+
             if self.drawing():
                 if self.current:
                     # Add point to existing shape.
