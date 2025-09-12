@@ -2140,12 +2140,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # 检查是否还存在图形
             if self.noShapes():
-                # 新增：如果没有图形了，则取消labelList勾选
-                self.fileListWidget.currentItem().setCheckState(Qt.Unchecked)
-
                 # 如果没有图形了，禁用所有与图形相关的操作
                 for action in self.actions.onShapesPresent:  # type: ignore[attr-defined]
                     action.setEnabled(False)
+                # 新增：如果没有图形了，则取消labelList勾选
+                self.fileListWidget.currentItem().setCheckState(Qt.Unchecked)
+                # 获取当前.json文件路径
+                label_filename = self.getLabelFile()
+                if osp.exists(label_filename):
+                    os.remove(label_filename)
 
     def copyShape(self):
         self.canvas.endMove(copy=True)
