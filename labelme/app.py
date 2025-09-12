@@ -286,12 +286,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
         saveAuto = action(
             text=self.tr("Save &Automatically"),
-            slot=lambda x: self.actions.saveAuto.setChecked(x),
+            # 在切换状态时同时更新配置并持久化
+            slot=lambda x: [
+                self.actions.saveAuto.setChecked(x),
+                self._config.__setitem__("auto_save", x),  # 使用字典方式更新配置
+                save_config(self._config)  # 配置持久化
+            ][0],  # 使用列表执行多个操作
             icon="save",
             tip=self.tr("Save automatically"),
             checkable=True,
             enabled=True,
+            checked=self._config.get("auto_save", True),  # 从配置加载初始状态，默认True
         )
+
         saveAuto.setChecked(self._config["auto_save"])
 
         saveWithImageData = action(
