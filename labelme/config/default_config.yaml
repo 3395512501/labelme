@@ -84,17 +84,17 @@ canvas:
     ai_mask: false
 
 shortcuts:
-  close: Ctrl+W
+  close: null
   open: Ctrl+O
   open_dir: Ctrl+U
   quit: Ctrl+Q
   save: Ctrl+S
   save_as: Ctrl+Shift+S
   save_to: null
-  delete_file: Ctrl+Delete
+  delete_file: Delete
 
-  open_next: [D, LEFT]
-  open_prev: [A, RIGHT]
+  open_next: [D, RIGHT]
+  open_prev: [A, LEFT]
 
   zoom_in: [Ctrl++, Ctrl+=]
   zoom_out: Ctrl+-
@@ -102,7 +102,7 @@ shortcuts:
   fit_window: Ctrl+F
   fit_width: Ctrl+Shift+F
 
-  create_polygon: Ctrl+N
+  create_polygon: N
   create_rectangle: W
   create_circle: null
   create_line: null

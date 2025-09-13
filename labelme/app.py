@@ -2041,25 +2041,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
         return label_file
 
+    # 修改： 删除文件时顺便删除图片
     def deleteFile(self):
         mb = QtWidgets.QMessageBox
         msg = self.tr(
-            "You are about to permanently delete this label file, proceed anyway?"
+            "确定删除图片以及.json文件吗?"
         )
         answer = mb.warning(self, self.tr("Attention"), msg, mb.Yes | mb.No)
         if answer != mb.Yes:
             return
 
         label_file = self.getLabelFile()
+        image_file = self.filename
+        # 获取当前行
+        current_row = self.fileListWidget.currentRow()
+        if current_row >= 0:
+            # 移除当前项
+            self.fileListWidget.takeItem(current_row)
+        if osp.exists(image_file):
+            # 删除图片文件
+            os.remove(image_file)
+            logger.info(f"Image file is removed: {image_file}")
+        # 若存在.json一起删了
         if osp.exists(label_file):
             os.remove(label_file)
             logger.info(f"Label file is removed: {label_file}")
 
-            item = self.fileListWidget.currentItem()
-            if item:
-                item.setCheckState(Qt.Unchecked)
-
-            self.resetState()
+        self.resetState()
 
     # Message Dialogs. #
     def hasLabels(self):
@@ -2153,6 +2161,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # 获取当前.json文件路径
                 label_filename = self.getLabelFile()
                 if osp.exists(label_filename):
+                    # 新增：如果没有图形了，删除标注文件
                     os.remove(label_filename)
 
     def copyShape(self):
