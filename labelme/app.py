@@ -45,6 +45,46 @@ from . import utils
 
 LABEL_COLORMAP = imgviz.label_colormap()
 
+class FileListLineNumberDelegate(QtWidgets.QItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.line_number_width = 40  # 行号区域宽度（可调整）
+        self.line_number_bg = QtGui.QColor("#f0f0f0")  # 行号区域背景色
+        self.line_number_color = QtGui.QColor("#666666")  # 行号文字颜色
+
+    def paint(self, painter, option, index):
+        # 1. 绘制行号区域背景
+        line_number_rect = QtCore.QRect(
+            option.rect.left(),          # 行号区域左边界
+            option.rect.top(),           # 行号区域上边界
+            self.line_number_width,      # 行号区域宽度（固定）
+            option.rect.height()         # 行号区域高度（与列表项一致）
+        )
+        painter.fillRect(line_number_rect, self.line_number_bg)  # 填充行号背景
+
+        # 2. 绘制行号文字（行号 = 索引 + 1，因为索引从0开始）
+        line_number = str(index.row() + 1)
+        painter.setPen(self.line_number_color)  # 设置行号文字颜色
+        # 行号在区域内居中对齐
+        painter.drawText(line_number_rect, QtCore.Qt.AlignCenter, line_number)
+
+        # 3. 调整文件路径的绘制区域（向右偏移，避开行号区域）
+        file_path_rect = QtCore.QRect(
+            option.rect.left() + self.line_number_width,  # 路径区域左边界（行号宽度后）
+            option.rect.top(),
+            option.rect.width() - self.line_number_width, # 路径区域宽度（总宽度 - 行号宽度）
+            option.rect.height()
+        )
+        option.rect = file_path_rect  # 更新绘制区域
+
+        # 4. 调用父类方法绘制文件路径（保持原样式，如选中态、禁用态等）
+        super().paint(painter, option, index)
+
+    def sizeHint(self, option, index):
+        # 预留行号宽度：原列表项宽度 + 行号区域宽度
+        size = super().sizeHint(option, index)
+        size.setWidth(size.width() + self.line_number_width)
+        return size
 
 class MainWindow(QtWidgets.QMainWindow):
     FIT_WINDOW, FIT_WIDTH, MANUAL_ZOOM = 0, 1, 2
@@ -146,21 +186,28 @@ class MainWindow(QtWidgets.QMainWindow):
         self.label_dock.setObjectName("Label List")
         self.label_dock.setWidget(self.uniqLabelList)
 
+        # 1. 文件搜索框：用于筛选文件列表
         self.fileSearch = QtWidgets.QLineEdit()
         self.fileSearch.setPlaceholderText(self.tr("Search Filename"))
-        self.fileSearch.textChanged.connect(self.fileSearchChanged)
+        self.fileSearch.textChanged.connect(self.fileSearchChanged)  # 搜索框内容变化时触发筛选
+
+        # 2. 文件列表控件：核心组件，用于显示图片/标注文件列表
         self.fileListWidget = QtWidgets.QListWidget()
-        self.fileListWidget.itemSelectionChanged.connect(self.fileSelectionChanged)
+        self.fileListWidget.setItemDelegate(FileListLineNumberDelegate())  # 为文件列表添加行号代理
+        self.fileListWidget.itemSelectionChanged.connect(self.fileSelectionChanged)  # 选中项变化时触发加载文件
+
+        # 3. 布局组合：将搜索框和列表控件放在同一布局中
         fileListLayout = QtWidgets.QVBoxLayout()
         fileListLayout.setContentsMargins(0, 0, 0, 0)
-        fileListLayout.setSpacing(0)
         fileListLayout.addWidget(self.fileSearch)
         fileListLayout.addWidget(self.fileListWidget)
+
+        # 4. 停靠窗口：将文件列表作为可停靠面板嵌入主窗口（默认在右侧）
         self.file_dock = QtWidgets.QDockWidget(self.tr("File List"), self)
         self.file_dock.setObjectName("Files")
-        fileListWidget = QtWidgets.QWidget()
-        fileListWidget.setLayout(fileListLayout)
-        self.file_dock.setWidget(fileListWidget)
+        fileListWidgetContainer = QtWidgets.QWidget()
+        fileListWidgetContainer.setLayout(fileListLayout)
+        self.file_dock.setWidget(fileListWidgetContainer)
 
         self.zoomWidget = ZoomWidget()
         self.setAcceptDrops(True)
@@ -205,7 +252,9 @@ class MainWindow(QtWidgets.QMainWindow):
             if self._config[dock]["show"] is False:
                 getattr(self, dock).setVisible(False)
 
-        self.addDockWidget(Qt.RightDockWidgetArea, self.flag_dock)
+        # 将文件列表停靠窗口添加到主窗口右侧
+        self.addDockWidget(Qt.RightDockWidgetArea, self.file_dock)
+
         self.addDockWidget(Qt.RightDockWidgetArea, self.label_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.shape_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.file_dock)
@@ -993,12 +1042,14 @@ class MainWindow(QtWidgets.QMainWindow):
         title = __appname__
         if self.filename is not None:
             title = f"{title} - {self.filename}"
+            # 图片存在的话，就允许删除
+            self.actions.deleteFile.setEnabled(True)
         self.setWindowTitle(title)
 
-        if self.hasLabelFile():
-            self.actions.deleteFile.setEnabled(True)
-        else:
-            self.actions.deleteFile.setEnabled(False)
+        # if self.hasLabelFile():
+        #     self.actions.deleteFile.setEnabled(True)
+        # else:
+        #     self.actions.deleteFile.setEnabled(True)
 
     def toggleActions(self, value=True):
         """Enable/Disable widgets which depend on an opened image."""
@@ -2067,7 +2118,7 @@ class MainWindow(QtWidgets.QMainWindow):
             os.remove(label_file)
             logger.info(f"Label file is removed: {label_file}")
 
-        self.resetState()
+        # self.resetState()
 
     # Message Dialogs. #
     def hasLabels(self):
