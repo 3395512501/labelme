@@ -1285,9 +1285,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.mayContinue():
             return
 
-        # 修改从QtCore.Qt.UserRole+1中获取图片路径显示
-        role_filename = item.data(QtCore.Qt.UserRole + 1)
-        currIndex = self.imageList.index(role_filename)
+        currIndex = self.imageList.index(str(item.text()))
         if currIndex < len(self.imageList):
             filename = self.imageList[currIndex]
             if filename:
@@ -1339,9 +1337,9 @@ class MainWindow(QtWidgets.QMainWindow):
         shape.line_color = QtGui.QColor(r, g, b)
         shape.vertex_fill_color = QtGui.QColor(r, g, b)
         shape.hvertex_fill_color = QtGui.QColor(255, 255, 255)
-        shape.fill_color = QtGui.QColor(r, g, b, 128)
+        shape.fill_color = QtGui.QColor(r, g, b, 32)
         shape.select_line_color = QtGui.QColor(255, 255, 255)
-        shape.select_fill_color = QtGui.QColor(r, g, b, 155)
+        shape.select_fill_color = QtGui.QColor(r, g, b, 64)
 
     def _get_rgb_by_label(self, label):
         if self._config["shape_color"] == "auto":
@@ -2194,9 +2192,7 @@ class MainWindow(QtWidgets.QMainWindow):
         lst = []
         for i in range(self.fileListWidget.count()):
             item = self.fileListWidget.item(i)
-            # 修改：从UserRole+1中读取原文件路径
-            role_filename = item.data(QtCore.Qt.UserRole + 1)
-            lst.append(role_filename)  # type: ignore[union-attr]
+            lst.append(item.text())  # type: ignore[union-attr]
         return lst
 
     def importDroppedImageFiles(self, imageFiles):
@@ -2244,18 +2240,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 filenames = [f for f in filenames if re.search(pattern, f)]
             except re.error:
                 pass
-        # 使用enumerate获取序号
-        for index, filename in enumerate(filenames, start=1):
+        for filename in filenames:
             label_file = f"{osp.splitext(filename)[0]}.json"
             if self.output_dir:
                 label_file_without_path = osp.basename(label_file)
                 label_file = osp.join(self.output_dir, label_file_without_path)
-
-            # 创建带有序号的显示文本，实际存储放到role_filename内
-            show_filename = f"{index}-{filename}"
-            item = QtWidgets.QListWidgetItem(show_filename)
-            item.setData(QtCore.Qt.UserRole + 1, filename)
-
+            item = QtWidgets.QListWidgetItem(filename)
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(label_file):
                 item.setCheckState(Qt.Checked)
