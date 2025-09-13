@@ -722,18 +722,21 @@ class Canvas(QtWidgets.QWidget):
             and self.prevMovePoint
             and not self.outOfPixmap(self.prevMovePoint)
         ):
-            p.setPen(QtGui.QColor(0, 0, 0))
+            # 创建画笔并设置颜色和宽度（例如2像素）
+            pen = QtGui.QPen(QtGui.QColor(0, 255, 0))
+            pen.setWidth(2)  # 设置线条宽度为2像素
+            p.setPen(pen)
             p.drawLine(
                 0,
                 int(self.prevMovePoint.y() * self.scale),
-                self.width() - 1,
+                int(self.pixmap.width() * self.scale),
                 int(self.prevMovePoint.y() * self.scale),
             )
             p.drawLine(
                 int(self.prevMovePoint.x() * self.scale),
                 0,
                 int(self.prevMovePoint.x() * self.scale),
-                self.height() - 1,
+                int(self.pixmap.height() * self.scale),
             )
 
         Shape.scale = self.scale
